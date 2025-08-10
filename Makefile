@@ -107,19 +107,33 @@ overlay:
 #
 .PHONY: installer
 installer:
+	# 1) Build & push installer-base (arm64) using your kernel
 	cd "$(CHECKOUTS_DIRECTORY)/talos" && \
 		$(MAKE) \
-			REGISTRY=$(REGISTRY) USERNAME=$(REGISTRY_USERNAME) PUSH=true \
-			PKG_KERNEL=$(KERNEL_IMAGE) \
-			INSTALLER_ARCH=arm64 PLATFORM=linux/arm64 \
-			IMAGER_ARGS='--overlay-name=rpi5 --overlay-image=$(OVERLAY_IMAGE) $(foreach e,$(EXTENSIONS),--system-extension-image=$(e))' \
-			installer && \
-	docker run --rm -t -v ./_out:/out -v /dev:/dev --privileged ghcr.io/siderolabs/imager:$(TALOS_VERSION) \
-		metal --arch arm64 \
-		--base-installer-image=ghcr.io/siderolabs/installer:$(TALOS_VERSION) \
-		--overlay-name=rpi5 \
-		--overlay-image=$(OVERLAY_IMAGE) \
-		$(foreach e,$(EXTENSIONS),--system-extension-image=$(e))
+		  REGISTRY=$(REGISTRY) USERNAME=$(REGISTRY_USERNAME) PUSH=true \
+		  ARCH=arm64 PLATFORM=linux/arm64 \
+		  PKG_KERNEL=$(KERNEL_IMAGE) \
+		  installer-base imager
+
+	# 2) Build installer (arm64) from that base + your overlay/exts
+	cd "$(CHECKOUTS_DIRECTORY)/talos" && \
+		$(MAKE) \
+		  REGISTRY=$(REGISTRY) USERNAME=$(REGISTRY_USERNAME) \
+		  ARCH=arm64 PLATFORM=linux/arm64 \
+		  IMAGER_ARGS="--base-installer-image=$(REGISTRY)/$(REGISTRY_USERNAME)/installer-base:$(TALOS_TAG) \
+		    --overlay-name=rpi5 --overlay-image=$(OVERLAY_IMAGE) \
+		    $(foreach e,$(EXTENSIONS),--system-extension-image=$(e))" \
+		  image-installer
+
+	# 3) Assemble RAW image with your installer (be explicit about arm64)
+	cd "$(CHECKOUTS_DIRECTORY)/talos" && \
+		docker run --rm -t --platform linux/arm64 \
+		  -v ./_out:/out -v /dev:/dev --privileged ghcr.io/siderolabs/imager:$(TALOS_VERSION) \
+		  metal --arch arm64 \
+		  --base-installer-image=$(REGISTRY)/$(REGISTRY_USERNAME)/installer:$(TALOS_TAG) \
+		  --overlay-name=rpi5 \
+		  --overlay-image=$(OVERLAY_IMAGE) \
+		  $(foreach e,$(EXTENSIONS),--system-extension-image=$(e))
 
 
 
