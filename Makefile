@@ -6,6 +6,7 @@ REGISTRY ?= ghcr.io
 REGISTRY_USERNAME ?= pgimenez
 
 TAG ?= $(shell git describe --tags --exact-match)
+CRANE ?= crane
 
 # override-able
 KERNEL_IMAGE  ?= $(REGISTRY)/$(REGISTRY_USERNAME)/kernel:$(PKGS_TAG)
@@ -107,7 +108,7 @@ overlay:
 #
 .PHONY: installer
 installer:
-	# 1) Build & push installer-base (ARM64) using your kernel (no 'imager' build here)
+	# 1) Build & push installer-base (ARM64) using your kernel
 	cd "$(CHECKOUTS_DIRECTORY)/talos" && \
 		DOCKER_DEFAULT_PLATFORM=linux/arm64 \
 		$(MAKE) \
@@ -116,26 +117,26 @@ installer:
 		  PKG_KERNEL=$(KERNEL_IMAGE) \
 		  installer-base
 
-	# 2) Build installer (ARM64) from that base + your overlay/system extensions
-	cd "$(CHECKOUTS_DIRECTORY)/talos" && \
-		DOCKER_DEFAULT_PLATFORM=linux/arm64 \
-		$(MAKE) \
-		  REGISTRY=$(REGISTRY) USERNAME=$(REGISTRY_USERNAME) \
-		  ARCH=arm64 PLATFORM=linux/arm64 INSTALLER_ARCH=arm64 \
-		  IMAGER_ARGS="--base-installer-image=$(REGISTRY)/$(REGISTRY_USERNAME)/installer-base:$(TALOS_TAG) \
-		    --overlay-name=rpi5 --overlay-image=$(OVERLAY_IMAGE) \
-		    $(foreach e,$(EXTENSIONS),--system-extension-image=$(e))" \
-		  image-installer
+	# 2) Resolve digest for the freshly pushed installer-base (with retry)
+	$(eval BASE_DIGEST := $(shell \
+		for i in 1 2 3 4 5; do \
+			d=$$(crane digest $(REGISTRY)/$(REGISTRY_USERNAME)/installer-base:$(TALOS_TAG) --platform linux/arm64 2>/dev/null) && { echo $$d; exit 0; }; \
+			sleep 2; \
+		done; \
+		exit 1))
 
-	# 3) Assemble RAW image with the official imager (ARM64)
+	# 3) Assemble RAW metal image directly from installer-base + overlay + extensions (ARM64)
 	cd "$(CHECKOUTS_DIRECTORY)/talos" && \
 		docker run --rm -t --platform linux/arm64 \
 		  -v ./_out:/out -v /dev:/dev --privileged ghcr.io/siderolabs/imager:$(TALOS_VERSION) \
 		  metal --arch arm64 \
-		  --base-installer-image=$(REGISTRY)/$(REGISTRY_USERNAME)/installer:$(TALOS_TAG) \
-		  --overlay-name=rpi5 \
-		  --overlay-image=$(OVERLAY_IMAGE) \
-		  $(foreach e,$(EXTENSIONS),--system-extension-image=$(e))
+		  --base-installer-image=$(REGISTRY)/$(REGISTRY_USERNAME)/installer-base@$(BASE_DIGEST) \
+		  --overlay-name rpi5 \
+		  --overlay-image $(OVERLAY_IMAGE) \
+		  $(foreach e,$(EXTENSIONS),--system-extension-image $(e))
+
+	# 4) List the generated image so CI artifacts can pick it up
+	ls -lh "$(CHECKOUTS_DIRECTORY)/talos/_out/metal-arm64.raw.zst"
 
 
 

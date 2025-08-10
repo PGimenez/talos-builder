@@ -39,13 +39,16 @@ jobs:
       # - name: Overlay
       #   run: make overlay
 
-      - name: Installer
-        env:
-          DOCKER_DEFAULT_PLATFORM: linux/arm64
+      - name: Installer (raw image)
         run: |
           make installer \
+            ARCH=arm64 PLATFORM=linux/arm64 INSTALLER_ARCH=arm64 \
             KERNEL_IMAGE=ghcr.io/pgimenez/kernel:v1.10.0-1-gede0d61 \
             OVERLAY_IMAGE=ghcr.io/pgimenez/sbc-raspberrypi5:7d04484-v1.10.0-1-gede0d61
+          ls -lh checkouts/talos/_out/metal-arm64.raw.zst  # sanity check
+
+      # ... your Create GitHub Release step already attaches:
+      # ./checkouts/talos/_out/metal-arm64.raw.zst
       # - name: Installer
       #   run: make installer
 
