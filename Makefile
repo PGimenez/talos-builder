@@ -105,17 +105,18 @@ installer:
 			REGISTRY=$(REGISTRY) USERNAME=$(REGISTRY_USERNAME) PUSH=true \
 			PKG_KERNEL=$(REGISTRY)/$(REGISTRY_USERNAME)/kernel:$(PKGS_TAG) \
 			INSTALLER_ARCH=arm64 PLATFORM=linux/arm64 \
-			IMAGER_ARGS="--overlay-name=rpi5 --overlay-image=$(REGISTRY)/$(REGISTRY_USERNAME)/sbc-raspberrypi5:$(SBCOVERLAY_TAG)" \
-			kernel initramfs imager installer-base installer && \
-		  $(foreach e,$(EXTENSIONS),--system-extension-image $(e))
+			IMAGER_ARGS="--overlay-name=rpi5 \
+				--overlay-image=$(REGISTRY)/$(REGISTRY_USERNAME)/sbc-raspberrypi5:$(SBCOVERLAY_TAG) \
+				$(foreach e,$(EXTENSIONS),--system-extension-image $(e))" \
+			kernel initramfs imager installer-base installer
 
-		docker \
-			run --rm -t -v ./_out:/out -v /dev:/dev --privileged $(REGISTRY)/$(REGISTRY_USERNAME)/imager:$(TALOS_TAG) \
-			metal --arch arm64 \
-			--base-installer-image="$(REGISTRY)/$(REGISTRY_USERNAME)/installer:$(TALOS_TAG)" \
-			--overlay-name="rpi5" \
-			--overlay-image="$(REGISTRY)/$(REGISTRY_USERNAME)/sbc-raspberrypi5:$(SBCOVERLAY_TAG)" \
-			--system-extension-image="$(EXTENSIONS)"
+	docker run --rm -t -v ./_out:/out -v /dev:/dev --privileged \
+		$(REGISTRY)/$(REGISTRY_USERNAME)/imager:$(TALOS_TAG) \
+		metal --arch arm64 \
+		--base-installer-image="$(REGISTRY)/$(REGISTRY_USERNAME)/installer:$(TALOS_TAG)" \
+		--overlay-name="rpi5" \
+		--overlay-image="$(REGISTRY)/$(REGISTRY_USERNAME)/sbc-raspberrypi5:$(SBCOVERLAY_TAG)" \
+		$(foreach e,$(EXTENSIONS),--system-extension-image "$(e)")
 
 
 
