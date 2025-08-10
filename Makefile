@@ -107,25 +107,27 @@ overlay:
 #
 .PHONY: installer
 installer:
-	# 1) Build & push installer-base (arm64) using your kernel
+	# 1) Build & push installer-base (ARM64) using your kernel (no 'imager' build here)
 	cd "$(CHECKOUTS_DIRECTORY)/talos" && \
+		DOCKER_DEFAULT_PLATFORM=linux/arm64 \
 		$(MAKE) \
 		  REGISTRY=$(REGISTRY) USERNAME=$(REGISTRY_USERNAME) PUSH=true \
-		  ARCH=arm64 PLATFORM=linux/arm64 \
+		  ARCH=arm64 PLATFORM=linux/arm64 INSTALLER_ARCH=arm64 \
 		  PKG_KERNEL=$(KERNEL_IMAGE) \
-		  installer-base imager
+		  installer-base
 
-	# 2) Build installer (arm64) from that base + your overlay/exts
+	# 2) Build installer (ARM64) from that base + your overlay/system extensions
 	cd "$(CHECKOUTS_DIRECTORY)/talos" && \
+		DOCKER_DEFAULT_PLATFORM=linux/arm64 \
 		$(MAKE) \
 		  REGISTRY=$(REGISTRY) USERNAME=$(REGISTRY_USERNAME) \
-		  ARCH=arm64 PLATFORM=linux/arm64 \
+		  ARCH=arm64 PLATFORM=linux/arm64 INSTALLER_ARCH=arm64 \
 		  IMAGER_ARGS="--base-installer-image=$(REGISTRY)/$(REGISTRY_USERNAME)/installer-base:$(TALOS_TAG) \
 		    --overlay-name=rpi5 --overlay-image=$(OVERLAY_IMAGE) \
 		    $(foreach e,$(EXTENSIONS),--system-extension-image=$(e))" \
 		  image-installer
 
-	# 3) Assemble RAW image with your installer (be explicit about arm64)
+	# 3) Assemble RAW image with the official imager (ARM64)
 	cd "$(CHECKOUTS_DIRECTORY)/talos" && \
 		docker run --rm -t --platform linux/arm64 \
 		  -v ./_out:/out -v /dev:/dev --privileged ghcr.io/siderolabs/imager:$(TALOS_VERSION) \

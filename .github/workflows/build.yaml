@@ -29,6 +29,8 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Prepare (checkouts & patches)
+        env:
+          DOCKER_DEFAULT_PLATFORM: linux/arm64
         run: make checkouts patches
 
       # - name: Kernel
@@ -38,6 +40,8 @@ jobs:
       #   run: make overlay
 
       - name: Installer
+        env:
+          DOCKER_DEFAULT_PLATFORM: linux/arm64
         run: |
           make installer \
             KERNEL_IMAGE=ghcr.io/pgimenez/kernel:v1.10.0-1-gede0d61 \
